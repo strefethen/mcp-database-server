@@ -1,6 +1,8 @@
 import sqlite3 from "sqlite3";
 import { DbAdapter } from "./adapter.js";
 
+console.error("[INFO] Initializing SQLite database adapter");
+
 /**
  * SQLite database adapter implementation
  */
@@ -13,19 +15,45 @@ export class SqliteAdapter implements DbAdapter {
   }
 
   /**
+   * Attach another SQLite database to the current connection
+   */
+  private attachDatabase(dbPath: string, alias: string): Promise<void> {
+    return new Promise((resolve) => {
+      this.db!.exec(`ATTACH DATABASE '${dbPath}' AS ${alias}`, (err) => {
+        if (err) {
+          console.error(`[ERROR] Failed to attach ${alias} database: ${err.message}`);
+        } else {
+          console.error(`[INFO] ${dbPath} database attached as '${alias}'`);
+        }
+        resolve();
+      });
+    });
+  }
+
+  /**
    * Initialize the SQLite database connection
    */
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
       // Ensure the dbPath is accessible
       console.error(`[INFO] Opening SQLite database at: ${this.dbPath}`);
-      this.db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+      this.db = new sqlite3.Database(this.dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, async (err) => {
         if (err) {
           console.error(`[ERROR] SQLite connection error: ${err.message}`);
           reject(err);
         } else {
           console.error("[INFO] SQLite database opened successfully");
-          resolve();
+          // Load SpatiaLite extension
+          this.db!.loadExtension("/opt/homebrew/lib/mod_spatialite.dylib", async (extErr) => {
+            if (extErr) {
+              console.error(`[ERROR] Failed to load SpatiaLite extension: ${extErr.message}`);
+            }
+            // Attach additional databases
+            await this.attachDatabase('/Users/stevetrefethen/github/newchp/data/tiger.sqlite', 'tiger');
+            await this.attachDatabase('/Users/stevetrefethen/github/newchp/data/caltrans.sqlite', 'caltrans');
+            await this.attachDatabase('/Users/stevetrefethen/github/newchp/data/nextauth.sqlite', 'nextauth');
+            resolve();
+          });
         }
       });
     });
@@ -41,7 +69,7 @@ export class SqliteAdapter implements DbAdapter {
     if (!this.db) {
       throw new Error("Database not initialized");
     }
-
+    console.error(`[SQLITE][ALL] Executing SQL:`, query, params && params.length ? `| Params: ${JSON.stringify(params)}` : '');
     return new Promise((resolve, reject) => {
       this.db!.all(query, params, (err: Error | null, rows: any[]) => {
         if (err) {
@@ -63,7 +91,7 @@ export class SqliteAdapter implements DbAdapter {
     if (!this.db) {
       throw new Error("Database not initialized");
     }
-
+    console.error(`[SQLITE][RUN] Executing SQL:`, query, params && params.length ? `| Params: ${JSON.stringify(params)}` : '');
     return new Promise((resolve, reject) => {
       this.db!.run(query, params, function(this: sqlite3.RunResult, err: Error | null) {
         if (err) {
@@ -84,7 +112,7 @@ export class SqliteAdapter implements DbAdapter {
     if (!this.db) {
       throw new Error("Database not initialized");
     }
-
+    console.error(`[SQLITE][EXEC] Executing SQL:`, query);
     return new Promise((resolve, reject) => {
       this.db!.exec(query, (err: Error | null) => {
         if (err) {
@@ -142,4 +170,4 @@ export class SqliteAdapter implements DbAdapter {
   getDescribeTableQuery(tableName: string): string {
     return `PRAGMA table_info(${tableName})`;
   }
-} 
+}
