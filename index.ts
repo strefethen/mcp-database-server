@@ -274,11 +274,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   switch (request.params.name) {
     case "read_query": {
       const query = request.params.arguments?.query as string;
+      // Remove all whitespace and newlines, then convert to lowercase for validation
+      const normalizedQuery = query.replace(/\s+/g, ' ').trim().toLowerCase();
       
-      if (!query.trim().toLowerCase().startsWith("select")) {
-        throw new Error("Only SELECT queries are allowed with read_query");
+      // Allow SELECT and PRAGMA queries
+      if (!(normalizedQuery.startsWith("select") || normalizedQuery.startsWith("pragma"))) {
+        throw new Error("Only SELECT & PRAGMA queries are allowed with read_query");
       }
-
       try {
         const result = await dbAll(query);
         return {
@@ -292,13 +294,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     case "write_query": {
       const query = request.params.arguments?.query as string;
-      const lowerQuery = query.trim().toLowerCase();
+      const normalizedQuery = query.replace(/\s+/g, ' ').trim().toLowerCase();
       
-      if (lowerQuery.startsWith("select")) {
+      if (normalizedQuery.startsWith("select")) {
         throw new Error("Use read_query for SELECT operations");
       }
       
-      if (!(lowerQuery.startsWith("insert") || lowerQuery.startsWith("update") || lowerQuery.startsWith("delete"))) {
+      if (!(normalizedQuery.startsWith("insert") || normalizedQuery.startsWith("update") || normalizedQuery.startsWith("delete"))) {
         throw new Error("Only INSERT, UPDATE, or DELETE operations are allowed with write_query");
       }
 
@@ -318,8 +320,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     case "create_table": {
       const query = request.params.arguments?.query as string;
+      const normalizedQuery = query.replace(/\s+/g, ' ').trim().toLowerCase();
       
-      if (!query.trim().toLowerCase().startsWith("create table")) {
+      if (!normalizedQuery.startsWith("create table")) {
         throw new Error("Only CREATE TABLE statements are allowed");
       }
 
@@ -339,8 +342,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     case "alter_table": {
       const query = request.params.arguments?.query as string;
+      const normalizedQuery = query.replace(/\s+/g, ' ').trim().toLowerCase();
       
-      if (!query.trim().toLowerCase().startsWith("alter table")) {
+      if (!normalizedQuery.startsWith("alter table")) {
         throw new Error("Only ALTER TABLE statements are allowed");
       }
 
@@ -408,8 +412,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "export_query": {
       const query = request.params.arguments?.query as string;
       const format = request.params.arguments?.format as string;
+      const normalizedQuery = query.replace(/\s+/g, ' ').trim().toLowerCase();
       
-      if (!query.trim().toLowerCase().startsWith("select")) {
+      if (!normalizedQuery.startsWith("select")) {
         throw new Error("Only SELECT queries are allowed with export_query");
       }
 

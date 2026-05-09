@@ -134,3 +134,8 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Local agent config and runtime artifacts
+.claude/
+*.sqlite
+log.out
