@@ -1,6 +1,12 @@
 # Explicit per-package decisions on whether install scripts may execute.
 # Default-deny: every package listed here must be set to true or false.
-# sqlite3 will be flipped to true in the follow-up commit that adds the
-# build-from-source flow for system-libsqlite3 linking (the SpatiaLite fix).
+#
+# sqlite3:true is intentional — we rebuild sqlite3 from source against the
+# system libsqlite3 so it shares an ABI with mod_spatialite. The actual
+# rebuild is driven by scripts/postinstall-sqlite3.mjs (wired up as the
+# `postinstall` lifecycle script in package.json). Without sqlite3 here,
+# pnpm would skip its install scripts and the binding would silently fall
+# back to the bundled-libsqlite3 prebuilt, reintroducing the SpatiaLite
+# segfault. See docs/SQLITE_SPATIALITE_BUILD.md for full rationale.
 allowBuilds:
-  sqlite3: false
+  sqlite3: true

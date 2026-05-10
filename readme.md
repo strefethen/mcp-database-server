@@ -56,6 +56,12 @@ To use with an SQLite database:
 node dist/src/index.js /path/to/your/database.db
 ```
 
+> **SpatiaLite users:** this fork rebuilds the `sqlite3` binding against the
+> system libsqlite3 on install so `mod_spatialite` can load without crashing.
+> See [`docs/sqlite-spatialite-build.md`](./docs/sqlite-spatialite-build.md)
+> for prerequisites (`libsqlite3-dev`, `libsqlite3-mod-spatialite`) and
+> verification commands.
+
 ### SQL Server Database
 
 To use with a SQL Server database:
