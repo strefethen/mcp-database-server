@@ -39,9 +39,12 @@ export interface DbAdapter {
   getMetadata(): { name: string, type: string, path?: string, server?: string, database?: string };
 
   /**
-   * Get database-specific query for listing tables
+   * Get database-specific query for listing tables.
+   * @param includeSystem When true, return system/internal tables alongside user tables.
+   *                      Defaults to false; SQLite uses this to hide SpatiaLite, Litestream,
+   *                      and RTree shadow tables that otherwise drown out application schema.
    */
-  getListTablesQuery(): string;
+  getListTablesQuery(includeSystem?: boolean): string;
 
   /**
    * Get database-specific query for describing a table

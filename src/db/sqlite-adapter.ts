@@ -223,10 +223,42 @@ export class SqliteAdapter implements DbAdapter {
   }
 
   /**
-   * Get database-specific query for listing tables
+   * Get database-specific query for listing tables.
+   *
+   * By default, hides system / internal tables (SQLite metadata, SpatiaLite catalog,
+   * RTree shadow tables, Litestream replication state). These are valid tables but
+   * dominate the result on spatially-indexed databases and obscure application schema.
+   * Pass `includeSystem=true` to bypass the filter when introspecting infrastructure.
    */
-  getListTablesQuery(): string {
-    return "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'";
+  getListTablesQuery(includeSystem: boolean = false): string {
+    if (includeSystem) {
+      return "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
+    }
+    return `
+      SELECT name FROM sqlite_master
+      WHERE type='table'
+        AND name NOT LIKE 'sqlite_%'
+        AND name NOT LIKE 'idx_%'
+        AND name NOT LIKE 'spatial_ref_sys%'
+        AND name NOT LIKE 'geometry_columns%'
+        AND name NOT LIKE 'views_geometry_columns%'
+        AND name NOT LIKE 'virts_geometry_columns%'
+        AND name NOT LIKE 'vector_layers%'
+        AND name NOT LIKE 'vector_coverages%'
+        AND name NOT LIKE 'raster_coverages%'
+        AND name NOT LIKE 'SE_%'
+        AND name NOT LIKE 'ISO_metadata%'
+        AND name NOT LIKE 'wms_%'
+        AND name NOT LIKE 'rl2%'
+        AND name NOT LIKE 'topologies%'
+        AND name NOT LIKE '\\_litestream\\_%' ESCAPE '\\'
+        AND name NOT LIKE '\\_ls\\_%' ESCAPE '\\'
+        AND name NOT IN (
+          'SpatialIndex','ElementaryGeometries','KNN2','data_licenses',
+          'spatialite_history','sql_statements_log','stored_procedures',
+          'stored_variables','unit','networks','geom_cols_ref_sys'
+        )
+      ORDER BY name`;
   }
 
   /**

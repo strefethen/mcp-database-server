@@ -87,13 +87,14 @@ export function getDatabaseMetadata(): { name: string, type: string, path?: stri
 }
 
 /**
- * Get database-specific query for listing tables
+ * Get database-specific query for listing tables.
+ * @param includeSystem When true, include system/internal tables; default false.
  */
-export function getListTablesQuery(): string {
+export function getListTablesQuery(includeSystem: boolean = false): string {
   if (!dbAdapter) {
     throw new Error("Database not initialized");
   }
-  return dbAdapter.getListTablesQuery();
+  return dbAdapter.getListTablesQuery(includeSystem);
 }
 
 /**

@@ -78,13 +78,15 @@ export async function dropTable(tableName: string, confirm: boolean) {
 }
 
 /**
- * List all tables in the database
+ * List all tables in the database.
+ * @param includeSystem When true, include system/internal tables (SpatiaLite catalog,
+ *                      Litestream replication state, RTree shadow tables, etc.).
+ *                      Defaults to false to keep responses focused on application schema.
  * @returns Array of table names
  */
-export async function listTables() {
+export async function listTables(includeSystem: boolean = false) {
   try {
-    // Use adapter-specific query for listing tables
-    const query = getListTablesQuery();
+    const query = getListTablesQuery(includeSystem);
     const tables = await dbAll(query);
     return formatSuccessResponse(tables.map((t) => t.name));
   } catch (error: any) {
@@ -103,15 +105,16 @@ export async function describeTable(tableName: string) {
       throw new Error("Table name is required");
     }
 
-    // First check if table exists by directly querying for tables
-    const query = getListTablesQuery();
+    // Pass includeSystem=true so describe works on SpatiaLite/Litestream
+    // catalog tables even though list_tables hides them by default.
+    const query = getListTablesQuery(true);
     const tables = await dbAll(query);
     const tableNames = tables.map(t => t.name);
-    
+
     if (!tableNames.includes(tableName)) {
       throw new Error(`Table '${tableName}' does not exist`);
     }
-    
+
     // Use adapter-specific query for describing tables
     const descQuery = getDescribeTableQuery(tableName);
     const columns = await dbAll(descQuery);

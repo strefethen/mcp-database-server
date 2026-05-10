@@ -82,10 +82,15 @@ export function handleListTools() {
       },
       {
         name: "list_tables",
-        description: "Get a list of all tables in the database",
+        description: "Get a list of application tables in the database. By default, hides system tables (SQLite metadata, SpatiaLite catalog, RTree shadow tables, Litestream replication state). Pass include_system=true to see everything.",
         inputSchema: {
           type: "object",
-          properties: {},
+          properties: {
+            include_system: {
+              type: "boolean",
+              description: "If true, include internal/system tables in the result. Defaults to false.",
+            },
+          },
         },
       },
       {
@@ -150,7 +155,7 @@ export async function handleToolCall(name: string, args: any) {
         return await exportQuery(args.query, args.format);
       
       case "list_tables":
-        return await listTables();
+        return await listTables(args.include_system === true);
       
       case "describe_table":
         return await describeTable(args.table_name);
