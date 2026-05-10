@@ -66,7 +66,7 @@ export function createDbAdapter(type: string, connectionInfo: any): DbAdapter {
       if (typeof connectionInfo === 'string') {
         return new SqliteAdapter(connectionInfo);
       } else {
-        return new SqliteAdapter(connectionInfo.path);
+        return new SqliteAdapter(connectionInfo.path, { readonly: connectionInfo.readonly === true });
       }
     case 'sqlserver':
       return new SqlServerAdapter(connectionInfo);

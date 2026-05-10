@@ -13,6 +13,9 @@ export async function initDatabase(connectionInfo: any, dbType: string = 'sqlite
     // If connectionInfo is a string, assume it's a SQLite path
     if (typeof connectionInfo === 'string') {
       connectionInfo = { path: connectionInfo };
+    } else if (connectionInfo && typeof connectionInfo === 'object' && 'sqlitePath' in connectionInfo) {
+      // SQLite invocation with extra flags (e.g. readonly)
+      connectionInfo = { path: connectionInfo.sqlitePath, readonly: connectionInfo.readonly };
     }
 
     // Create appropriate adapter based on database type

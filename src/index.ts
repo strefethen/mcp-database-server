@@ -185,8 +185,15 @@ else if (args.includes('--mysql')) {
 } else {
   // SQLite mode (default)
   dbType = 'sqlite';
-  connectionInfo = args[0]; // First argument is the SQLite file path
-  logger.info(`Using SQLite database at path: ${connectionInfo}`);
+  // First non-flag argument is the SQLite file path; --readonly opens read-only
+  const sqlitePath = args.find(a => !a.startsWith('--'));
+  if (!sqlitePath) {
+    logger.error("Error: SQLite mode requires a database file path");
+    process.exit(1);
+  }
+  const readonly = args.includes('--readonly');
+  connectionInfo = { sqlitePath, readonly };
+  logger.info(`Using SQLite database at path: ${sqlitePath}${readonly ? ' (readonly)' : ''}`);
 }
 
 // Set up request handlers
@@ -235,7 +242,7 @@ async function runServer() {
   try {
     logger.info(`Initializing ${dbType} database...`);
     if (dbType === 'sqlite') {
-      logger.info(`Database path: ${connectionInfo}`);
+      logger.info(`Database path: ${connectionInfo.sqlitePath}`);
     } else if (dbType === 'sqlserver') {
       logger.info(`Server: ${connectionInfo.server}, Database: ${connectionInfo.database}`);
     } else if (dbType === 'postgresql') {
