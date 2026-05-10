@@ -42,15 +42,27 @@ export class SqliteAdapter implements DbAdapter {
   }
 
   /**
-   * Attach another SQLite database to the current connection
+   * Attach another SQLite database to the current connection.
+   *
+   * Uses the URI form `file:<path>?mode=ro&immutable=1` so that SQLite treats the
+   * attached file as strictly read-only and skips journal/WAL sidecar allocation.
+   * That matters when the file lives in a directory the running process can't
+   * write to (e.g. /var/lib/commutedash/ owned by the `commutedash` service user
+   * with mode 750) — a default ATTACH would succeed, then fail at first query
+   * with "attempt to write a readonly database" when SQLite tried to create a
+   * journal file. `immutable=1` is also an explicit promise that the file will
+   * not change while attached, which is correct for reference datasets like
+   * TIGER, the CalTrans CCTV catalog, and PeMS station_metadata: those are
+   * updated by replacing the file (and restarting the server), never in place.
    */
   private attachDatabase(dbPath: string, alias: string): Promise<void> {
     return new Promise((resolve) => {
-      this.db!.exec(`ATTACH DATABASE '${dbPath}' AS ${alias}`, (err) => {
+      const uri = `file:${dbPath}?mode=ro&immutable=1`;
+      this.db!.exec(`ATTACH DATABASE '${uri}' AS ${alias}`, (err) => {
         if (err) {
           console.error(`[ERROR] Failed to attach ${alias} database: ${err.message}`);
         } else {
-          console.error(`[INFO] ${dbPath} database attached as '${alias}'`);
+          console.error(`[INFO] ${dbPath} database attached as '${alias}' (read-only, immutable)`);
         }
         resolve();
       });
@@ -67,10 +79,13 @@ export class SqliteAdapter implements DbAdapter {
    */
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
-      // Ensure the dbPath is accessible
-      const openMode = this.readonly
+      // Ensure the dbPath is accessible. OPEN_URI is required so subsequent
+      // ATTACH statements may use `file:...?mode=ro&immutable=1` URI filenames
+      // (URI parsing is otherwise opt-in and only activates for paths that
+      // begin with `file:` — plain paths like this.dbPath continue to work).
+      const openMode = (this.readonly
         ? sqlite3.OPEN_READONLY
-        : sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE;
+        : sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE) | sqlite3.OPEN_URI;
       console.error(`[INFO] Opening SQLite database at: ${this.dbPath} (${this.readonly ? 'readonly' : 'readwrite'})`);
       this.db = new sqlite3.Database(this.dbPath, openMode, async (err) => {
         if (err) {
@@ -78,27 +93,32 @@ export class SqliteAdapter implements DbAdapter {
           reject(err);
         } else {
           console.error("[INFO] SQLite database opened successfully");
+
+          // Order matters here: ATTACH the sibling reference databases BEFORE
+          // loading SpatiaLite. On at least the aarch64 build of node-sqlite3
+          // + libspatialite shipped on Debian Bookworm, calling ATTACH after
+          // mod_spatialite has been loaded crashes the process with SIGSEGV
+          // (verified May 2026, sqlite3@5.x). Attaching first sidesteps the
+          // crash; SpatiaLite functions still bind to all currently-attached
+          // databases when loaded afterward.
+          await this.attachDatabaseIfExists('/var/lib/commutedash/tiger.sqlite', 'tiger');
+          await this.attachDatabaseIfExists('/var/lib/commutedash/caltrans.sqlite', 'caltrans');
+          await this.attachDatabaseIfExists('/var/lib/commutedash/pems.sqlite', 'pems');
+
           // Load SpatiaLite extension
           const spatialitePath = findSpatialitePath();
-          const afterExtension = async () => {
-            // Attach additional databases (skip silently when file missing)
-            await this.attachDatabaseIfExists('/Users/stevetrefethen/github/newchp/data/tiger.sqlite', 'tiger');
-            await this.attachDatabaseIfExists('/Users/stevetrefethen/github/newchp/data/caltrans.sqlite', 'caltrans');
-            await this.attachDatabaseIfExists('/Users/stevetrefethen/github/newchp/data/nextauth.sqlite', 'nextauth');
-            resolve();
-          };
           if (!spatialitePath) {
             console.error("[ERROR] SpatiaLite module not found. Install libsqlite3-mod-spatialite (Linux) or set SPATIALITE_PATH env var.");
-            await afterExtension();
+            resolve();
             return;
           }
-          this.db!.loadExtension(spatialitePath, async (extErr) => {
+          this.db!.loadExtension(spatialitePath, (extErr) => {
             if (extErr) {
               console.error(`[ERROR] Failed to load SpatiaLite extension from ${spatialitePath}: ${extErr.message}`);
             } else {
               console.error(`[INFO] SpatiaLite extension loaded from ${spatialitePath}`);
             }
-            await afterExtension();
+            resolve();
           });
         }
       });
