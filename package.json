@@ -15,7 +15,7 @@
     ],
     "scripts": {
         "build": "tsc && shx chmod +x dist/src/index.js",
-        "prepare": "npm run build",
+        "prepare": "pnpm run build",
         "watch": "tsc --watch",
         "start": "node dist/src/index.js",
         "dev": "tsc && node dist/src/index.js",
@@ -38,5 +38,8 @@
         "shx": "0.4.0",
         "typescript": "5.8.3"
     },
-    "packageManager": "yarn@3.6.4+sha512.e70835d4d6d62c07be76b3c1529cb640c7443f0fe434ef4b6478a5a399218cbaf1511b396b3c56eb03bc86424cff2320f6167ad2fde273aa0df6e60b7754029f"
+    "packageManager": "pnpm@11.0.9+sha512.34ce82e6780233cf9cad8685029a8f81d2e06196c5a9bad98879f7424940c6817c4e4524fb7d38b8553ceed48b9758b8ebaf1abd3600c232c4c8cf7366086f38",
+    "pnpm": {
+        "onlyBuiltDependencies": []
+    }
 }

@@ -1,0 +1,6 @@
+# Explicit per-package decisions on whether install scripts may execute.
+# Default-deny: every package listed here must be set to true or false.
+# sqlite3 will be flipped to true in the follow-up commit that adds the
+# build-from-source flow for system-libsqlite3 linking (the SpatiaLite fix).
+allowBuilds:
+  sqlite3: false
