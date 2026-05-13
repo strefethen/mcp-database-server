@@ -226,6 +226,24 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
+// Exit if the parent closes stdin (e.g. Claude Code exits or crashes).
+// Without this, the SDK's stdio transport can hot-loop on a closed pipe
+// and starve the event loop, leaving the process pegged at 100% CPU.
+process.stdin.on('end', () => {
+  logger.info('stdin closed by parent — shutting down');
+  closeDatabase().finally(() => process.exit(0));
+});
+process.stdin.on('close', () => process.exit(0));
+
+// Watchdog: if we get reparented to init (PPID 1), the parent died.
+const originalPpid = process.ppid;
+setInterval(() => {
+  if (process.ppid !== originalPpid && process.ppid === 1) {
+    logger.error('Parent process died — exiting');
+    process.exit(0);
+  }
+}, 30_000).unref();
+
 // Add global error handler
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught exception:', error);
