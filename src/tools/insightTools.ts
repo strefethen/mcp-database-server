@@ -45,14 +45,6 @@ export async function listInsights() {
     );
     
     if (tableExists.length === 0) {
-      // Create table if it doesn't exist
-      await dbExec(`
-        CREATE TABLE IF NOT EXISTS mcp_insights (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          insight TEXT NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
       return formatSuccessResponse([]);
     }
     

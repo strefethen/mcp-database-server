@@ -87,6 +87,16 @@ export function getDatabaseMetadata(): { name: string, type: string, path?: stri
 }
 
 /**
+ * Check whether the active database connection is read-only.
+ */
+export function isDatabaseReadOnly(): boolean {
+  if (!dbAdapter) {
+    throw new Error("Database not initialized");
+  }
+  return dbAdapter.isReadOnly();
+}
+
+/**
  * Get database-specific query for listing tables.
  * @param includeSystem When true, include system/internal tables; default false.
  */

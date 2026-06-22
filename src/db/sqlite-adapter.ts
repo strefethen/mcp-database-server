@@ -223,6 +223,13 @@ export class SqliteAdapter implements DbAdapter {
   }
 
   /**
+   * Whether this SQLite connection was opened read-only.
+   */
+  isReadOnly(): boolean {
+    return this.readonly;
+  }
+
+  /**
    * Get database-specific query for listing tables.
    *
    * By default, hides system / internal tables (SQLite metadata, SpatiaLite catalog,

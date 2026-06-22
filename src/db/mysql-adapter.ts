@@ -201,6 +201,13 @@ export class MysqlAdapter implements DbAdapter {
   }
 
   /**
+   * MySQL connections are currently treated as read-write.
+   */
+  isReadOnly(): boolean {
+    return false;
+  }
+
+  /**
    * Get database-specific query for listing tables
    */
   getListTablesQuery(): string {

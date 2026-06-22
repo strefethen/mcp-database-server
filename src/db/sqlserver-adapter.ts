@@ -171,6 +171,13 @@ export class SqlServerAdapter implements DbAdapter {
   }
 
   /**
+   * SQL Server connections are currently treated as read-write.
+   */
+  isReadOnly(): boolean {
+    return false;
+  }
+
+  /**
    * Get database-specific query for listing tables
    */
   getListTablesQuery(): string {

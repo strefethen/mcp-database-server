@@ -1,73 +1,81 @@
 import { formatErrorResponse } from '../utils/formatUtils.js';
+import { isDatabaseReadOnly } from '../db/index.js';
 
 // Import all tool implementations
 import { readQuery, writeQuery, exportQuery } from '../tools/queryTools.js';
 import { createTable, alterTable, dropTable, listTables, describeTable } from '../tools/schemaTools.js';
 import { appendInsight, listInsights } from '../tools/insightTools.js';
 
+const MUTATION_TOOLS = new Set([
+  "write_query",
+  "create_table",
+  "alter_table",
+  "drop_table",
+  "append_insight",
+]);
+
 /**
  * Handle listing available tools
  * @returns List of available tools
  */
 export function handleListTools() {
-  return {
-    tools: [
-      {
-        name: "read_query",
-        description: "Execute SELECT queries to read data from the database",
-        inputSchema: {
-          type: "object",
-          properties: {
-            query: { type: "string" },
-          },
-          required: ["query"],
+  const tools = [
+    {
+      name: "read_query",
+      description: "Execute SELECT queries to read data from the database",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
         },
+        required: ["query"],
       },
-      {
-        name: "write_query",
-        description: "Execute INSERT, UPDATE, or DELETE queries",
-        inputSchema: {
-          type: "object",
-          properties: {
-            query: { type: "string" },
-          },
-          required: ["query"],
+    },
+    {
+      name: "write_query",
+      description: "Execute INSERT, UPDATE, or DELETE queries",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
         },
+        required: ["query"],
       },
-      {
-        name: "create_table",
-        description: "Create new tables in the database",
-        inputSchema: {
-          type: "object",
-          properties: {
-            query: { type: "string" },
-          },
-          required: ["query"],
+    },
+    {
+      name: "create_table",
+      description: "Create new tables in the database",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
         },
+        required: ["query"],
       },
-      {
-        name: "alter_table",
-        description: "Modify existing table schema (add columns, rename tables, etc.)",
-        inputSchema: {
-          type: "object",
-          properties: {
-            query: { type: "string" },
-          },
-          required: ["query"],
+    },
+    {
+      name: "alter_table",
+      description: "Modify existing table schema (add columns, rename tables, etc.)",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
         },
+        required: ["query"],
       },
-      {
-        name: "drop_table",
-        description: "Remove a table from the database with safety confirmation",
-        inputSchema: {
-          type: "object",
-          properties: {
-            table_name: { type: "string" },
-            confirm: { type: "boolean" },
-          },
-          required: ["table_name", "confirm"],
+    },
+    {
+      name: "drop_table",
+      description: "Remove a table from the database with safety confirmation",
+      inputSchema: {
+        type: "object",
+        properties: {
+          table_name: { type: "string" },
+          confirm: { type: "boolean" },
         },
+        required: ["table_name", "confirm"],
       },
+    },
       {
         name: "export_query",
         description: "Export query results to various formats (CSV, JSON)",
@@ -123,7 +131,12 @@ export function handleListTools() {
           properties: {},
         },
       },
-    ],
+  ];
+
+  return {
+    tools: isDatabaseReadOnly()
+      ? tools.filter((tool) => !MUTATION_TOOLS.has(tool.name))
+      : tools,
   };
 }
 
@@ -135,6 +148,10 @@ export function handleListTools() {
  */
 export async function handleToolCall(name: string, args: any) {
   try {
+    if (isDatabaseReadOnly() && MUTATION_TOOLS.has(name)) {
+      throw new Error(`Tool '${name}' is unavailable because the database connection is read-only`);
+    }
+
     switch (name) {
       case "read_query":
         return await readQuery(args.query);
