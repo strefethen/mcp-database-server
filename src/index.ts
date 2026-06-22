@@ -24,6 +24,31 @@ const logger = {
   info: (...args: any[]) => console.error('[INFO]', ...args),
 };
 
+// Determine the SQLite file path early (first non-flag arg) so we can ship
+// DB-specific query guidance to the client via the MCP `instructions` field.
+const sqlitePathArg = process.argv.slice(2).find((a) => !a.startsWith('--')) ?? '';
+const isChpV2 = /chp-v2\.sqlite$/.test(sqlitePathArg);
+
+// Query-hygiene guidance surfaced to ANY connecting MCP client (e.g. Claude
+// Desktop, which has no CLAUDE.md). Mirrors the rpi2 chpv2 rules so clients
+// without the project context don't repeat the known query mistakes.
+const chpV2Instructions = `This server is a READ-ONLY replica of the CHP incident database (chp-v2). Follow these rules for correct, reproducible results:
+
+1. TIME / DATE WINDOWS (most common mistake): time lives in *_epoch columns (log_time_epoch, detail_time_epoch, unit_time_epoch) as TRUE UTC SECONDS. The host timezone is America/Los_Angeles (Pacific, DST-aware).
+   - Build date-window bounds with the 'utc' modifier: strftime('%s','2026-06-19 00:00:00','utc'). NEVER write a bare strftime('%s','2026-06-19 00:00:00') — without 'utc' it parses the literal as UTC, so a Pacific "today/this-week/this-month" window silently starts ~7-8h early (5pm the prior day) and bleeds adjacent days in. No error, just wrong counts.
+   - Filter on the RAW epoch column against integer bounds: WHERE log_time_epoch >= <lo> AND log_time_epoch < <hi>. Never wrap the column in datetime()/strftime()/date() inside WHERE — it forces a full scan of millions of rows.
+   - Render/group in Pacific with datetime(log_time_epoch,'unixepoch','localtime').
+
+2. H3 HEX VALUES: h3_r7/h3_r8/h3_r9 are 64-bit integers. NEVER paste an H3 value from a prior result back as a SQL literal (e.g. WHERE h3_r8 = 613221872680566800) — JSON/float round-trip corrupts the last 2-3 digits and silently matches ZERO rows. Reference the hex via a subquery/CTE: WHERE h3_r8 = (SELECT h3_r8 FROM top_hex).
+
+3. IDENTIFY ATTRIBUTES BY CODED FIELDS, NOT FREE TEXT: use log_type_id, is_accident, involves_motorcycle, involves_bigrig, fire, area_id, district, route — never text-search the free-text 'detail' column (e.g. detail LIKE '%fatal%'), which mixes in negations/speculation and mis-counts. Fatalities = log_type_id IN (2,66). Collisions = is_accident = 1.
+
+4. SPATIAL: geometry is SRID 4326 (lon/lat); geometry_3310 is SRID 3310 in METRES — use it for distances/buffers. Lead spatial filters with MBRIntersects (uses the R*Tree index) then refine with ST_Intersects.
+
+5. FRESHNESS: this replica trails the source by ~90s and the current day/hour is partial — label the latest bucket as in-progress. Only SELECT/PRAGMA are allowed; EXPLAIN QUERY PLAN is rejected.`;
+
+const genericInstructions = `Read-only SQLite database server. Only SELECT and PRAGMA statements are permitted. For date filtering on epoch/Unix-second columns, compare the raw column to integer bounds rather than wrapping it in datetime()/strftime() in WHERE, to keep indexes usable.`;
+
 // Configure the server
 const server = new Server(
   {
@@ -35,6 +60,7 @@ const server = new Server(
       resources: {},
       tools: {},
     },
+    instructions: isChpV2 ? chpV2Instructions : genericInstructions,
   },
 );
 
