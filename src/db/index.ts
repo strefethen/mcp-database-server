@@ -97,6 +97,45 @@ export function isDatabaseReadOnly(): boolean {
 }
 
 /**
+ * Attach an existing database file to the live connection (SQLite only).
+ */
+export function dbAttach(dbPath: string, alias: string): Promise<void> {
+  if (!dbAdapter) {
+    throw new Error("Database not initialized");
+  }
+  if (!dbAdapter.attachDatabaseExplicit) {
+    throw new Error("ATTACH is only supported for SQLite databases");
+  }
+  return dbAdapter.attachDatabaseExplicit(dbPath, alias);
+}
+
+/**
+ * Detach a previously attached database by alias (SQLite only).
+ */
+export function dbDetach(alias: string): Promise<void> {
+  if (!dbAdapter) {
+    throw new Error("Database not initialized");
+  }
+  if (!dbAdapter.detachDatabase) {
+    throw new Error("DETACH is only supported for SQLite databases");
+  }
+  return dbAdapter.detachDatabase(alias);
+}
+
+/**
+ * List databases visible on the connection — main plus attached (SQLite only).
+ */
+export function dbListDatabases(): Promise<Array<{ seq: number; name: string; file: string }>> {
+  if (!dbAdapter) {
+    throw new Error("Database not initialized");
+  }
+  if (!dbAdapter.listDatabases) {
+    throw new Error("Listing databases is only supported for SQLite databases");
+  }
+  return dbAdapter.listDatabases();
+}
+
+/**
  * Get database-specific query for listing tables.
  * @param includeSystem When true, include system/internal tables; default false.
  */

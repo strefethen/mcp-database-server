@@ -44,6 +44,27 @@ export interface DbAdapter {
   isReadOnly(): boolean;
 
   /**
+   * Attach an existing database file at runtime so its tables can be queried
+   * via the alias (e.g. SELECT * FROM alias.table). SQLite only; adapters
+   * without support leave this undefined. The file is opened read-only.
+   * @param dbPath Path to an existing database file
+   * @param alias Schema alias to reference the attached database by
+   */
+  attachDatabaseExplicit?(dbPath: string, alias: string): Promise<void>;
+
+  /**
+   * Detach a previously attached database by alias (SQLite only).
+   * @param alias Schema alias used when the database was attached
+   */
+  detachDatabase?(alias: string): Promise<void>;
+
+  /**
+   * List databases visible on the connection — the main database plus any
+   * attached databases (SQLite only).
+   */
+  listDatabases?(): Promise<Array<{ seq: number; name: string; file: string }>>;
+
+  /**
    * Get database-specific query for listing tables.
    * @param includeSystem When true, return system/internal tables alongside user tables.
    *                      Defaults to false; SQLite uses this to hide SpatiaLite, Litestream,

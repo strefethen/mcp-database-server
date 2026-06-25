@@ -74,6 +74,56 @@ export class SqliteAdapter implements DbAdapter {
     await this.attachDatabase(dbPath, alias);
   }
 
+  // A schema alias is interpolated directly into ATTACH/DETACH (it cannot be
+  // bound as a parameter), so it must be validated to prevent SQL injection.
+  // Valid alias: a letter or underscore followed by word characters.
+  private static isValidAlias(alias: string): boolean {
+    return /^[A-Za-z_]\w*$/.test(alias);
+  }
+
+  /**
+   * Attach an existing database file at runtime (agent-callable). Unlike the
+   * internal best-effort {@link attachDatabase} used for reference datasets,
+   * this rejects on error so the caller learns of failures. The file is opened
+   * `mode=ro` so the attached database cannot be written.
+   * @param dbPath Path to an existing database file
+   * @param alias Schema alias to reference the attached database by
+   */
+  async attachDatabaseExplicit(dbPath: string, alias: string): Promise<void> {
+    if (!SqliteAdapter.isValidAlias(alias)) {
+      throw new Error(`Invalid alias '${alias}': must start with a letter or underscore and contain only word characters`);
+    }
+    if (!this.db) {
+      throw new Error("Database not initialized");
+    }
+    const uri = `file:${dbPath}?mode=ro`.replace(/'/g, "''");
+    await new Promise<void>((resolve, reject) => {
+      this.db!.exec(`ATTACH DATABASE '${uri}' AS ${alias}`, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  /**
+   * Detach a previously attached database by alias (agent-callable).
+   * @param alias Schema alias used when the database was attached
+   */
+  async detachDatabase(alias: string): Promise<void> {
+    if (!SqliteAdapter.isValidAlias(alias)) {
+      throw new Error(`Invalid alias '${alias}': must start with a letter or underscore and contain only word characters`);
+    }
+    await this.run(`DETACH DATABASE ${alias}`);
+  }
+
+  /**
+   * List databases visible on the connection (main + attached) via
+   * PRAGMA database_list.
+   */
+  async listDatabases(): Promise<Array<{ seq: number; name: string; file: string }>> {
+    return this.all("PRAGMA database_list") as Promise<Array<{ seq: number; name: string; file: string }>>;
+  }
+
   /**
    * Initialize the SQLite database connection
    */

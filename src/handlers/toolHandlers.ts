@@ -5,6 +5,7 @@ import { isDatabaseReadOnly } from '../db/index.js';
 import { readQuery, writeQuery, exportQuery } from '../tools/queryTools.js';
 import { createTable, alterTable, dropTable, listTables, describeTable } from '../tools/schemaTools.js';
 import { appendInsight, listInsights } from '../tools/insightTools.js';
+import { attachDatabase, detachDatabase, listDatabases } from '../tools/attachTools.js';
 
 const MUTATION_TOOLS = new Set([
   "write_query",
@@ -131,6 +132,37 @@ export function handleListTools() {
           properties: {},
         },
       },
+      {
+        name: "attach_database",
+        description: "Attach an existing SQLite database file (read-only) under an alias so its tables can be queried as alias.table",
+        inputSchema: {
+          type: "object",
+          properties: {
+            path: { type: "string", description: "Path to an existing SQLite database file" },
+            alias: { type: "string", description: "Schema alias to reference the attached database by" },
+          },
+          required: ["path", "alias"],
+        },
+      },
+      {
+        name: "detach_database",
+        description: "Detach a previously attached SQLite database by alias",
+        inputSchema: {
+          type: "object",
+          properties: {
+            alias: { type: "string", description: "Schema alias used when the database was attached" },
+          },
+          required: ["alias"],
+        },
+      },
+      {
+        name: "list_databases",
+        description: "List databases visible on the connection: the main database plus any attached databases (PRAGMA database_list)",
+        inputSchema: {
+          type: "object",
+          properties: {},
+        },
+      },
   ];
 
   return {
@@ -182,7 +214,16 @@ export async function handleToolCall(name: string, args: any) {
       
       case "list_insights":
         return await listInsights();
-      
+
+      case "attach_database":
+        return await attachDatabase(args.path, args.alias);
+
+      case "detach_database":
+        return await detachDatabase(args.alias);
+
+      case "list_databases":
+        return await listDatabases();
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
