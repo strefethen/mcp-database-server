@@ -96,7 +96,14 @@ export class SqliteAdapter implements DbAdapter {
     if (!this.db) {
       throw new Error("Database not initialized");
     }
-    const uri = `file:${dbPath}?mode=ro`.replace(/'/g, "''");
+    // Percent-encode each path segment (preserving '/') so that '?', '&', '#'
+    // and '=' embedded in the caller-supplied path cannot open or extend the
+    // URI query string and override mode=ro (e.g. ".../x.db?mode=rwc&" would
+    // otherwise reopen the attached database read-write, bypassing read-only).
+    // encodeURIComponent leaves "'" unescaped, so the SQL-literal quote escape
+    // below is still required.
+    const encodedPath = dbPath.split('/').map(encodeURIComponent).join('/');
+    const uri = `file:${encodedPath}?mode=ro`.replace(/'/g, "''");
     await new Promise<void>((resolve, reject) => {
       this.db!.exec(`ATTACH DATABASE '${uri}' AS ${alias}`, (err) => {
         if (err) reject(err);
